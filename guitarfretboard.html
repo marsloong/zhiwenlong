@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>吉他指板工具 | Guitar Fretboard Tool</title>
+    <style>
+        :root {
+            /* Theme Colors */
+            --bg-color: #121214;
+            --panel-bg: #1d1d20;
+            --border-color: #333336;
+            
+            /* Text */
+            --text-main: #ededf0;
+            --text-sub: #8f9099;
+            
+            /* Accents */
+            --root-color: #ff4444; 
+            --root-glow: 0 0 15px rgba(255, 68, 68, 0.8);
+            
+            --note-color: #3b82f6; 
+            --note-glow: 0 0 10px rgba(59, 130, 246, 0.6);
+            --note-bg: #1e293b;
+
+            --toggle-active: #3b82f6;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        /* --- Header --- */
+        .header {
+            width: 100%;
+            max-width: 1240px;
+            margin-bottom: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+        }
+
+        .title-group h1 { margin: 0; font-size: 1.6rem; font-weight: 600; color: #fff; }
+        .title-group span { font-size: 0.8rem; color: var(--text-sub); text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- Control Panel --- */
+        .controls {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 24px 30px;
+            width: 100%;
+            max-width: 1240px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.2);
+            margin-bottom: 40px;
+            align-items: flex-end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            min-width: fit-content; 
+            flex-shrink: 0;
+        }
+
+        .label-title {
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--text-sub);
+            text-transform: uppercase;
+        }
+
+        /* Inputs */
+        .select-wrapper { position: relative; width: 100%; min-width: 120px; }
+        select {
+            width: 100%; appearance: none; background-color: var(--bg-color);
+            border: 1px solid var(--border-color); color: var(--text-main);
+            padding: 10px 34px 10px 14px; border-radius: 6px; font-size: 0.9rem;
+            cursor: pointer; transition: border 0.2s;
+        }
+        select:hover { border-color: #555; }
+        select:focus { border-color: var(--note-color); outline: none; }
+        .select-arrow { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-sub); font-size: 0.7rem; }
+
+        .segmented-control {
+            display: flex; background-color: var(--bg-color);
+            border: 1px solid var(--border-color); border-radius: 6px; padding: 3px;
+            min-width: 200px;
+        }
+        .seg-btn {
+            flex: 1; border: none; background: transparent; color: var(--text-sub);
+            padding: 7px 15px; font-size: 0.85rem; cursor: pointer; border-radius: 4px; font-weight: 500; transition: all 0.2s;
+            white-space: nowrap; 
+        }
+        .seg-btn.active { background-color: #2c2c30; color: #fff; }
+
+        /* Toggle Switch */
+        .switch-container { height: 38px; display: flex; align-items: center; }
+        .switch-label { position: relative; display: inline-block; width: 46px; height: 24px; cursor: pointer; flex-shrink: 0; }
+        .switch-label input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--bg-color); border: 1px solid var(--border-color);
+            border-radius: 34px; transition: .3s;
+        }
+        .slider:before {
+            position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px;
+            background-color: var(--text-sub); border-radius: 50%; transition: .3s;
+        }
+        input:checked + .slider { border-color: var(--toggle-active); }
+        input:checked + .slider:before { transform: translateX(22px); background-color: var(--toggle-active); }
+        
+        .toggle-text { margin-left: 12px; font-size: 0.85rem; color: var(--text-sub); white-space: nowrap; }
+
+        /* --- Fretboard Frame --- */
+        .scroll-frame {
+            width: 100%; max-width: 1240px; overflow-x: auto;
+            background: #0e0e0e; border: 1px solid var(--border-color);
+            border-radius: 8px; 
+            padding: 20px 0 20px 0; 
+            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .scroll-frame::-webkit-scrollbar { height: 14px; }
+        .scroll-frame::-webkit-scrollbar-track { background: #0e0e0e; }
+        .scroll-frame::-webkit-scrollbar-thumb { background: #333; border-radius: 7px; border: 3px solid #0e0e0e; }
+
+        .fretboard-grid {
+            display: flex; flex-direction: column; width: fit-content; margin: 0 auto; 
+            padding: 35px 20px 0 20px;
+            min-width: 100%;
+            position: relative;
+        }
+
+        /* CAGED Overlay Layer */
+        .caged-overlay {
+            position: absolute;
+            top: 35px;
+            left: 20px; 
+            right: 20px; 
+            height: 288px;
+            pointer-events: none;
+            z-index: 5; 
+        }
+
+        .caged-box {
+            position: absolute;
+            border: 2px dashed rgba(255, 255, 255, 0.4);
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.02);
+            box-sizing: border-box;
+            transition: opacity 0.3s;
+        }
+        
+        /* Label Tag Style - Moved ABOVE the box */
+        .caged-box::after { 
+            content: attr(data-label);
+            position: absolute;
+            top: -24px;
+            left: -2px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: #fff;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .shape-E { border-color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+        .shape-E::after { background-color: #3b82f6; }
+
+        .shape-A { border-color: #eab308; background: rgba(234, 179, 8, 0.08); }
+        .shape-A::after { background-color: #eab308; color: #000; }
+
+        .shape-D { border-color: #a855f7; background: rgba(168, 85, 247, 0.08); }
+        .shape-D::after { background-color: #a855f7; }
+
+        .shape-G { border-color: #22c55e; background: rgba(34, 197, 94, 0.08); }
+        .shape-G::after { background-color: #22c55e; color: #000; }
+
+        .shape-C { border-color: #f97316; background: rgba(249, 115, 22, 0.08); }
+        .shape-C::after { background-color: #f97316; color: #000; }
+
+        /* Strings & Frets */
+        .string-row { display: flex; height: 48px; position: relative; }
+        .string-row::after {
+            content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+            height: var(--s-h); background: linear-gradient(to bottom, #888, #444); z-index: 0;
+        }
+        .string-row[data-wound="true"]::after { background: repeating-linear-gradient(90deg, #666, #666 1px, #333 1px, #333 3px); }
+
+        .fret-cell {
+            width: 68px; height: 100%; border-right: 2px solid #383838; position: relative; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .fret-cell::before { content: ''; position: absolute; right: -2px; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.2); z-index: 1; }
+        .fret-cell:first-child { width: 44px; border-right: 6px solid #ccc; background-color: #181818; }
+        .fret-cell:first-child::before { display: none; }
+
+        /* Notes */
+        .note {
+            width: 32px; height: 32px; border-radius: 50%; background-color: var(--note-bg);
+            border: 2px solid var(--note-color); color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; font-weight: 700; z-index: 10; opacity: 0; transform: scale(0.5);
+            transition: all 0.2s ease-out; box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+        }
+        .note.visible { opacity: 1; transform: scale(1); }
+        .note.root { background-color: var(--root-color); border-color: #fff; box-shadow: var(--root-glow); z-index: 11; }
+        
+        .note.open-note {
+            background-color: transparent !important; border: none !important; box-shadow: none !important;
+            border-radius: 0 !important; width: 100%; height: 100%; font-size: 0.95rem;
+            color: var(--note-color); text-shadow: var(--note-glow);
+        }
+        .note.open-note.root { color: var(--root-color); text-shadow: var(--root-glow); }
+
+        /* Bottom Info */
+        .markers-strip { 
+            display: flex; height: 30px; 
+            margin-top: 20px; 
+            border-top: 1px solid #333; 
+            padding-top: 5px;
+        }
+        .marker-cell { width: 68px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+        .marker-cell:first-child { width: 44px; }
+        .dot { width: 8px; height: 8px; background-color: #444; border-radius: 50%; }
+        .dot-double { display: flex; gap: 8px; }
+        
+        .numbers-strip { display: flex; margin-top: 4px; }
+        .num-cell { width: 68px; text-align: center; color: #555; font-size: 0.75rem; font-family: monospace; flex-shrink: 0; }
+        .num-cell:first-child { width: 44px; }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            color: var(--text-sub);
+            font-size: 0.8rem;
+            opacity: 0.7;
+            font-weight: 300;
+            letter-spacing: 0.5px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header class="header">
+        <div class="title-group">
+            <h1>吉他指板工具 v6.1</h1>
+        </div>
+        <div style="color:var(--text-sub); font-size:0.8rem;">@支文龙 使用 Gemini 3 Pro 生成</div>
+    </header>
+
+    <div class="controls">
+        
+        <!-- 1. Root (Seperated) -->
+        <div class="control-group">
+            <div class="label-title">Root / 根音</div>
+            <div class="select-wrapper">
+                <select id="rootSelect"></select>
+                <span class="select-arrow">▼</span>
+            </div>
+        </div>
+
+        <!-- 2. Tonality -->
+        <div class="control-group">
+            <div class="label-title">Tonality / 调性</div>
+            <div class="segmented-control">
+                <button class="seg-btn active" onclick="setTonality('major')" data-t="major">Major 大调</button>
+                <button class="seg-btn" onclick="setTonality('minor')" data-t="minor">Minor 小调</button>
+            </div>
+        </div>
+
+        <!-- 3. Scale -->
+        <div class="control-group">
+            <div class="label-title">Scale / 音阶类型</div>
+            <div class="select-wrapper">
+                <select id="scaleSelect"></select>
+                <span class="select-arrow">▼</span>
+            </div>
+        </div>
+
+        <!-- 4. CAGED Toggle -->
+        <div class="control-group">
+            <div class="label-title">Shapes / 指型框</div>
+            <div class="switch-container">
+                <label class="switch-label">
+                    <input type="checkbox" id="cagedToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-text">显示指型</span>
+            </div>
+        </div>
+
+        <!-- 5. Interval Toggle -->
+        <div class="control-group">
+            <div class="label-title">View / 视图模式</div>
+            <div class="switch-container">
+                <label class="switch-label">
+                    <input type="checkbox" id="intervalToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-text">显示简谱名</span>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="scroll-frame">
+        <div class="fretboard-grid" id="gridContainer">
+            <!-- CAGED Overlay Container -->
+            <div class="caged-overlay" id="cagedLayer"></div>
+            <!-- Strings will be generated here -->
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIG ---
+        const NUM_FRETS = 22;
+        const standardTuning = [4, 11, 7, 2, 9, 4]; // E B G D A E
+        
+        // Extended Root list
+        const rootOptions = [
+            { name: 'C', val: 0 }, { name: 'C#', val: 1 }, { name: 'Db', val: 1 },
+            { name: 'D', val: 2 }, { name: 'D#', val: 3 }, { name: 'Eb', val: 3 },
+            { name: 'E', val: 4 }, { name: 'F', val: 5 },  { name: 'F#', val: 6 },
+            { name: 'Gb', val: 6 }, { name: 'G', val: 7 }, { name: 'G#', val: 8 },
+            { name: 'Ab', val: 8 }, { name: 'A', val: 9 }, { name: 'A#', val: 10 },
+            { name: 'Bb', val: 10 }, { name: 'B', val: 11 }
+        ];
+
+        const notesData = [
+            { s: 'C',  f: 'C' }, { s: 'C#', f: 'Db' }, { s: 'D',  f: 'D' }, { s: 'D#', f: 'Eb' },
+            { s: 'E',  f: 'E' }, { s: 'F',  f: 'F' },  { s: 'F#', f: 'Gb' }, { s: 'G',  f: 'G' },
+            { s: 'G#', f: 'Ab' }, { s: 'A',  f: 'A' }, { s: 'A#', f: 'Bb' }, { s: 'B',  f: 'B' }
+        ];
+
+        // Extended Scale Library
+        const scaleLibrary = {
+            major: [
+                { name: 'Natural Major (Ionian) / 自然大调', vals: [0,2,4,5,7,9,11] },
+                { name: 'Major Pentatonic / 大调五声', vals: [0,2,4,7,9] },
+                { name: 'Lydian / 利底亚 (Major #4)', vals: [0,2,4,6,7,9,11] },
+                { name: 'Mixolydian / 混合利底亚 (Dominant)', vals: [0,2,4,5,7,9,10] },
+                { name: 'Phrygian Dominant / 弗里几亚属音阶 (Spanish)', vals: [0,1,4,5,7,8,10] },
+                { name: 'Lydian Dominant / 利底亚属音阶 (#4, b7)', vals: [0,2,4,6,7,10] },
+                { name: 'Bebop Dominant / 比波普属音阶 (Jazz)', vals: [0,2,4,5,7,9,10,11] },
+                { name: 'Whole Tone / 全音阶', vals: [0,2,4,6,8,10] }
+            ],
+            minor: [
+                { name: 'Natural Minor (Aeolian) / 自然小调', vals: [0,2,3,5,7,8,10] },
+                { name: 'Minor Pentatonic / 小调五声', vals: [0,3,5,7,10] },
+                { name: 'Blues Scale / 布鲁斯音阶', vals: [0,3,5,6,7,10] },
+                { name: 'Harmonic Minor / 和声小调', vals: [0,2,3,5,7,8,11] },
+                { name: 'Melodic Minor / 旋律小调 (Jazz Minor)', vals: [0,2,3,5,7,9,11] },
+                { name: 'Dorian / 多利亚 (Minor 6)', vals: [0,2,3,5,7,9,10] },
+                { name: 'Phrygian / 弗里几亚 (b2)', vals: [0,1,3,5,7,8,10] },
+                { name: 'Locrian / 洛克利亚 (m7b5)', vals: [0,1,3,5,6,8,10] },
+                { name: 'Diminished (Whole-Half) / 减音阶 (全-半)', vals: [0,2,3,5,6,8,9,11] }
+            ]
+        };
+
+        const intervalNames = { 0:'1', 1:'b2', 2:'2', 3:'b3', 4:'3', 5:'4', 6:'b5', 7:'5', 8:'b6', 9:'6', 10:'b7', 11:'7' };
+        
+        // Dimensions
+        const NUT_WIDTH = 44;
+        const FRET_WIDTH = 68;
+        
+        // DOM
+        const rootSelect = document.getElementById('rootSelect');
+        const scaleSelect = document.getElementById('scaleSelect');
+        const intervalToggle = document.getElementById('intervalToggle');
+        const cagedToggle = document.getElementById('cagedToggle');
+        const gridContainer = document.getElementById('gridContainer');
+        const cagedLayer = document.getElementById('cagedLayer');
+
+        let currentTonality = 'major';
+
+        function init() {
+            // Populate separate roots
+            rootOptions.forEach((optData) => {
+                let opt = document.createElement('option');
+                opt.value = optData.val;
+                opt.text = optData.name;
+                rootSelect.appendChild(opt);
+            });
+            
+            buildBoard();
+            setTonality('major');
+            
+            rootSelect.addEventListener('change', update);
+            scaleSelect.addEventListener('change', update);
+            intervalToggle.addEventListener('change', update);
+            cagedToggle.addEventListener('change', update);
+        }
+
+        function buildBoard() {
+            // Strings
+            for (let s = 0; s < 6; s++) {
+                const row = document.createElement('div');
+                row.className = 'string-row';
+                let thickness = 1 + (s * 0.5);
+                row.style.setProperty('--s-h', `${thickness}px`);
+                if(s > 2) row.dataset.wound = "true";
+                for (let f = 0; f <= NUM_FRETS; f++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'fret-cell';
+                    row.appendChild(cell);
+                }
+                gridContainer.appendChild(row);
+            }
+            // Markers
+            const markerRow = document.createElement('div');
+            markerRow.className = 'markers-strip';
+            const dots = [3, 5, 7, 9, 15, 17, 19, 21];
+            for (let f = 0; f <= NUM_FRETS; f++) {
+                const cell = document.createElement('div');
+                cell.className = 'marker-cell';
+                if (f > 0) { 
+                    if (dots.includes(f)) {
+                        let d = document.createElement('div'); d.className = 'dot';
+                        cell.appendChild(d);
+                    } else if (f === 12) {
+                        let dd = document.createElement('div'); dd.className = 'dot-double';
+                        dd.innerHTML = '<div class="dot"></div><div class="dot"></div>';
+                        cell.appendChild(dd);
+                    }
+                }
+                markerRow.appendChild(cell);
+            }
+            gridContainer.appendChild(markerRow);
+            // Numbers
+            const numRow = document.createElement('div');
+            numRow.className = 'numbers-strip';
+            for (let f = 0; f <= NUM_FRETS; f++) {
+                const cell = document.createElement('div');
+                cell.className = 'num-cell';
+                if(f > 0) cell.innerText = f;
+                numRow.appendChild(cell);
+            }
+            gridContainer.appendChild(numRow);
+        }
+
+        window.setTonality = function(t) {
+            currentTonality = t;
+            document.querySelectorAll('.seg-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.t === t);
+            });
+            scaleSelect.innerHTML = '';
+            scaleLibrary[t].forEach(sc => {
+                let opt = document.createElement('option');
+                opt.value = JSON.stringify(sc.vals);
+                opt.text = sc.name;
+                scaleSelect.appendChild(opt);
+            });
+            scaleSelect.selectedIndex = 0;
+            update();
+        }
+
+        function update() {
+            updateNotes();
+            updateCAGED();
+        }
+
+        function updateNotes() {
+            const root = parseInt(rootSelect.value);
+            const intervals = JSON.parse(scaleSelect.value);
+            const showInt = intervalToggle.checked;
+            
+            // Check if user selected a flat root
+            const selectedText = rootSelect.options[rootSelect.selectedIndex].text;
+            const useFlat = selectedText.includes('b');
+
+            document.querySelectorAll('.note').forEach(n => n.remove());
+
+            for (let s = 1; s <= 6; s++) {
+                const row = gridContainer.children[s];
+                const stringIdx = s - 1; 
+                const openNote = standardTuning[stringIdx];
+
+                for (let f = 0; f <= NUM_FRETS; f++) {
+                    const noteVal = (openNote + f) % 12;
+                    const interval = (noteVal - root + 12) % 12;
+
+                    if (intervals.includes(interval)) {
+                        const cell = row.children[f];
+                        const n = document.createElement('div');
+                        n.className = 'note';
+                        
+                        if (f === 0) n.classList.add('open-note');
+                        if (interval === 0) n.classList.add('root');
+
+                        if (showInt) {
+                            n.innerText = intervalNames[interval];
+                            if(f > 0 && n.innerText.length > 1) n.style.fontSize = '0.7rem';
+                        } else {
+                            const d = notesData[noteVal];
+                            n.innerText = useFlat ? d.f : d.s;
+                        }
+                        cell.appendChild(n);
+                        setTimeout(() => n.classList.add('visible'), f * 6);
+                    }
+                }
+            }
+        }
+
+        function updateCAGED() {
+            cagedLayer.innerHTML = '';
+            if (!cagedToggle.checked) return;
+
+            const root = parseInt(rootSelect.value);
+            
+            // 1. E & G Shapes (Roots on Low E string)
+            getRootsOnString(5, root).forEach(fret => {
+                drawBox(fret, 4, 'E-Shape', 'shape-E');
+                drawBox(fret - 3, 4, 'G-Shape', 'shape-G');
+            });
+
+            // 2. A & C Shapes (Roots on A string)
+            getRootsOnString(4, root).forEach(fret => {
+                drawBox(fret, 3, 'A-Shape', 'shape-A');
+                drawBox(fret - 3, 4, 'C-Shape', 'shape-C');
+            });
+
+            // 3. D Shape (Roots on D string)
+            getRootsOnString(3, root).forEach(fret => {
+                drawBox(fret, 4, 'D-Shape', 'shape-D');
+            });
+        }
+
+        function getRootsOnString(stringIdx, rootVal) {
+            const open = standardTuning[stringIdx];
+            let roots = [];
+            for(let f=0; f<=NUM_FRETS; f++) {
+                if ((open + f) % 12 === rootVal) roots.push(f);
+            }
+            return roots;
+        }
+
+        function drawBox(startFret, lengthInFrets, label, cssClass) {
+            if (startFret < 0) return; 
+
+            const box = document.createElement('div');
+            box.className = `caged-box ${cssClass}`;
+            box.dataset.label = label;
+
+            let leftPos = 0;
+            if (startFret > 0) {
+                leftPos = NUT_WIDTH + (startFret - 1) * FRET_WIDTH;
+            } else {
+                leftPos = 0;
+            }
+
+            let boxWidth = 0;
+            if (startFret === 0) {
+                boxWidth = NUT_WIDTH + (lengthInFrets - 1) * FRET_WIDTH;
+            } else {
+                boxWidth = lengthInFrets * FRET_WIDTH;
+            }
+
+            box.style.left = `${leftPos}px`;
+            box.style.width = `${boxWidth}px`;
+            box.style.height = '288px'; 
+            box.style.top = '0px';
+
+            cagedLayer.appendChild(box);
+        }
+
+        init();
+    </script>
+</body>
+</html>

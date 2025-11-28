@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>节拍器工具 | Metronome</title>
+    <style>
+        :root {
+            /* --- 尺寸系统 --- */
+            --h-lg: 88px;  
+            --h-md: 60px;  
+            --radius-lg: 16px;
+            --radius-sm: 8px;
+
+            /* --- 配色系统 --- */
+            --bg-body: #09090b;
+            --bg-panel: #121214;
+            --bg-element: #27272a;
+            --bg-hover: #3f3f46;
+            
+            --primary: #f59e0b;
+            --primary-glow: rgba(245, 158, 11, 0.4);
+            --primary-dim: rgba(245, 158, 11, 0.15);
+            
+            --text-main: #ffffff;
+            --text-muted: #a1a1aa;
+            --text-dim: #52525b;
+            
+            --border: #3f3f46;
+        }
+
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; outline: none; }
+        
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* --- 主机架 --- */
+        .studio-rack {
+            width: 100%;
+            max-width: 1100px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 50px 100px rgba(0,0,0,0.8);
+            display: grid;
+            /* 两行：第一行标题，第二行内容 */
+            grid-template-rows: auto 1fr; 
+            grid-template-columns: 340px 1fr;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- 顶部标题栏 (新) --- */
+        .rack-header {
+            grid-column: 1 / -1; /* 跨越两列 */
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-brand {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--text-main);
+            letter-spacing: 2px;
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+        }
+        
+        .header-brand span {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--primary);
+            letter-spacing: 1px;
+        }
+
+        .header-badge {
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+            padding: 6px 12px;
+            border-radius: 6px;
+            letter-spacing: 2px;
+            background: var(--bg-element);
+        }
+
+        /* --- 左侧面板 --- */
+        .left-console {
+            background: rgba(255,255,255,0.02);
+            border-right: 1px solid var(--border);
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .bpm-display-area { text-align: center; margin-bottom: 10px; }
+        .bpm-val {
+            font-size: 7.5rem; font-weight: 800; color: var(--primary);
+            line-height: 0.9; font-variant-numeric: tabular-nums;
+            text-shadow: 0 0 30px var(--primary-glow); letter-spacing: -4px;
+        }
+        .bpm-label { font-size: 0.9rem; color: var(--text-muted); letter-spacing: 4px; font-weight: 700; margin-top: 10px; opacity: 0.6; }
+
+        .slider-wrap { width: 100%; padding: 10px 0; }
+        input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 8px; background: var(--bg-element); border-radius: 4px; }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 28px; width: 28px; border-radius: 50%;
+            background: var(--primary); margin-top: -10px; cursor: pointer;
+            box-shadow: 0 0 15px rgba(0,0,0,0.5); border: 3px solid var(--bg-panel);
+            transition: transform 0.1s;
+        }
+        input[type=range]:active::-webkit-slider-thumb { transform: scale(1.1); }
+
+        .bpm-btns { display: flex; gap: 15px; width: 100%; }
+        .btn-sq {
+            flex: 1; height: var(--h-md);
+            background: var(--bg-element); border: 1px solid var(--border);
+            color: var(--text-main); font-size: 1.8rem; border-radius: var(--radius-lg);
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-sq:hover { background: var(--bg-hover); border-color: var(--text-muted); }
+        .btn-sq:active { background: var(--primary); color: #000; border-color: var(--primary); }
+
+        .btn-tap {
+            width: 100%; height: var(--h-md);
+            background: transparent;
+            border: 2px dashed var(--bg-hover); color: var(--text-muted);
+            border-radius: var(--radius-lg); font-weight: 700; font-size: 1rem;
+            cursor: pointer; transition: 0.2s; letter-spacing: 2px;
+        }
+        .btn-tap:hover { border-color: var(--text-muted); color: var(--text-main); }
+        .btn-tap:active { border-color: var(--primary); color: var(--primary); background: var(--primary-dim); }
+
+        .play-btn {
+            margin-top: auto; 
+            width: 100%; height: var(--h-lg);
+            background: var(--primary); color: #000;
+            border: none; border-radius: var(--radius-lg);
+            font-size: 1.6rem; font-weight: 900; letter-spacing: 2px;
+            cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            box-shadow: 0 10px 30px rgba(245, 158, 11, 0.2);
+            text-transform: uppercase;
+        }
+        .play-btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        .play-btn:active { transform: translateY(1px); }
+        .play-btn.playing { background: #ef4444; color: #fff; box-shadow: 0 10px 30px rgba(239, 68, 68, 0.3); }
+
+
+        /* --- 右侧面板 --- */
+        .right-console {
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            min-width: 0;
+        }
+
+        .row-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 15px; padding-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .row-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; }
+
+        .beat-visual-area {
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            min-height: 120px;
+            display: flex; align-items: center; justify-content: center;
+            flex-wrap: wrap; gap: 15px;
+        }
+        .beat-group { display: flex; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(255,255,255,0.03); }
+        .beat-dot {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: var(--bg-element); border: 2px solid var(--bg-hover);
+            cursor: pointer; transition: 0.1s;
+        }
+        .beat-dot[data-state="0"] { opacity: 0.15; border-style: dashed; }
+        .beat-dot[data-state="1"] { background: var(--bg-hover); border-color: var(--text-muted); }
+        .beat-dot[data-state="2"] { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 10px var(--primary-glow); }
+        .beat-dot.flash { transform: scale(1.4); filter: brightness(1.5); z-index: 10; border-color: #fff; }
+
+        .bar-adj { background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.4rem; padding: 0 10px; }
+        .bar-adj:hover { color: var(--text-main); transform: scale(1.2); }
+
+        .subdivision-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; width: 100%;
+        }
+        .sub-text-btn {
+            background: var(--bg-element); border: 1px solid transparent;
+            border-radius: var(--radius-lg); 
+            height: var(--h-lg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: 0.2s; min-width: 0;
+        }
+        .sub-text-btn:hover { background: var(--bg-hover); }
+        .sub-text-btn.active { background: var(--primary-dim); border-color: var(--primary); }
+        .sub-main-text { font-size: 1.2rem; font-weight: 700; color: var(--text-main); }
+        .sub-sub-text { font-size: 0.75rem; color: var(--text-dim); margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sub-text-btn.active .sub-main-text { color: var(--primary); }
+        .sub-text-btn.active .sub-sub-text { color: var(--primary); opacity: 0.8; }
+
+        .timer-panel {
+            margin-top: auto;
+            background: var(--bg-body);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 0 30px;
+            height: var(--h-lg);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .timer-left-section { display: flex; align-items: center; height: 100%; gap: 30px; }
+        .timer-switch-group { display: flex; align-items: center; gap: 15px; }
+        .timer-label { font-size: 0.8rem; color: var(--text-muted); font-weight: bold; letter-spacing: 1px; }
+        
+        .toggle-switch {
+            width: 48px; height: 26px; background: var(--bg-hover); border-radius: 20px;
+            position: relative; cursor: pointer; transition: 0.3s;
+        }
+        .toggle-switch::after {
+            content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+            background: #fff; border-radius: 50%; transition: 0.3s;
+        }
+        .toggle-switch.on { background: var(--primary); }
+        .toggle-switch.on::after { left: 25px; }
+
+        .timer-adj-group { 
+            display: flex; align-items: center; gap: 12px; 
+            padding-left: 30px; border-left: 1px solid var(--border); 
+            height: 40px; 
+        }
+        .timer-btn {
+            width: 40px; height: 40px; background: var(--bg-element); border: 1px solid var(--border);
+            color: var(--text-main); border-radius: var(--radius-sm); font-size: 1.2rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s;
+        }
+        .timer-btn:hover { background: var(--bg-hover); border-color: var(--text-main); }
+        .timer-btn:active { background: var(--primary); color: #000; }
+        
+        .timer-input {
+            width: 50px; background: transparent; border: none; border-bottom: 2px solid var(--bg-hover);
+            font-size: 1.5rem; font-weight: bold; color: var(--text-main); text-align: center; padding-bottom: 2px;
+        }
+        .timer-unit { font-size: 0.8rem; color: var(--text-dim); margin-top: 8px; font-weight: 600; }
+
+        .timer-display {
+            font-family: 'Courier New', monospace; font-size: 3rem; font-weight: 700;
+            color: var(--bg-hover); line-height: 1; min-width: 160px; text-align: right; letter-spacing: -2px;
+        }
+        .timer-display.active { color: var(--primary); text-shadow: 0 0 20px var(--primary-glow); }
+
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        /* 响应式 */
+        @media (max-width: 950px) {
+            .studio-rack { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; border-radius: 0; border: none; max-height: none; overflow: visible;}
+            .rack-header { grid-column: 1; }
+            .left-console { padding: 40px 20px; border-right: none; border-bottom: 1px solid var(--border); }
+            .play-btn { margin-top: 30px; }
+            .timer-panel { height: auto; padding: 20px; flex-direction: column; gap: 20px; }
+            .timer-left-section { flex-direction: column; width: 100%; gap: 20px; }
+            .timer-adj-group { border-left: none; padding-left: 0; }
+            .timer-display { width: 100%; text-align: center; }
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="studio-rack">
+    
+    <!-- 顶部标题栏 -->
+    <div class="rack-header">
+        <div class="header-brand">METRONOME <span>节拍器 v2.3</span></div>
+        <div class="header-badge">@支文龙 使用 Gemini 3 Pro 生成</div>
+    </div>
+
+    <!-- 左侧控制台 -->
+    <div class="left-console">
+        <div class="bpm-display-area">
+            <div class="bpm-val" id="bpm-val">120</div>
+            <div class="bpm-label">BPM / 速度</div>
+        </div>
+
+        <div class="slider-wrap"><input type="range" min="30" max="280" value="120" id="bpm-slider"></div>
+        
+        <div class="bpm-btns">
+            <button class="btn-sq" onclick="adjBpm(-1)">-</button>
+            <button class="btn-sq" onclick="adjBpm(1)">+</button>
+        </div>
+
+        <button class="btn-tap" id="tap-btn">TAP TEMPO</button>
+
+        <button class="play-btn" id="play-btn">START</button>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div class="right-console">
+        
+        <!-- 1. 节奏模式 -->
+        <div>
+            <div class="row-header">
+                <div class="row-title">Rhythm Pattern / 节奏模式</div>
+                <div>
+                    <button class="bar-adj" onclick="adjBar(-1)">-</button>
+                    <span style="font-size:1.2rem; font-weight:bold; margin:0 10px;" id="bar-count">4</span>
+                    <button class="bar-adj" onclick="adjBar(1)">+</button>
+                </div>
+            </div>
+            <div class="beat-visual-area" id="visual-area">
+                <!-- JS 将生成分组的圆点 -->
+            </div>
+        </div>
+
+        <!-- 2. 节奏细分 -->
+        <div>
+            <div class="row-header"><div class="row-title">Subdivision / 细分</div></div>
+            <div class="subdivision-grid">
+                <div class="sub-text-btn active" onclick="setSub(1, this)">
+                    <div class="sub-main-text">1/4</div><div class="sub-sub-text">Quarter</div>
+                </div>
+                <div class="sub-text-btn" onclick="setSub(2, this)">
+                    <div class="sub-main-text">1/8</div><div class="sub-sub-text">Eighth</div>
+                </div>
+                <div class="sub-text-btn" onclick="setSub(3, this)">
+                    <div class="sub-main-text">1/12</div><div class="sub-sub-text">Triplets</div>
+                </div>
+                <div class="sub-text-btn" onclick="setSub(4, this)">
+                    <div class="sub-main-text">1/16</div><div class="sub-sub-text">Sixteenth</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. 计时器 -->
+        <div class="timer-panel">
+            <div class="timer-left-section">
+                <div class="timer-switch-group">
+                    <div class="timer-label">TIMER</div>
+                    <div class="toggle-switch" id="timer-toggle"></div>
+                </div>
+                <div class="timer-adj-group">
+                    <button class="timer-btn" onclick="adjTimer(-1)">-</button>
+                    <input type="number" class="timer-input" id="timer-input" value="10">
+                    <button class="timer-btn" onclick="adjTimer(1)">+</button>
+                    <div class="timer-unit">MIN</div>
+                </div>
+            </div>
+            <div class="timer-display" id="timer-display">00:00</div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AudioContext();
+
+    // --- Web Worker (防休眠) ---
+    const workerBlob = new Blob([`
+        let timerID = null;
+        let interval = 25;
+        self.onmessage = function(e) {
+            if (e.data === "start") {
+                timerID = setInterval(() => postMessage("tick"), interval);
+            } else if (e.data === "stop") {
+                clearInterval(timerID);
+            }
+        };
+    `], { type: "text/javascript" });
+    const timerWorker = new Worker(window.URL.createObjectURL(workerBlob));
+
+    // State
+    let isPlaying = false;
+    let bpm = 120;
+    let beatsPerBar = 4;
+    let subdivision = 1; 
+    let patternState = []; 
+    
+    let nextNoteTime = 0.0;
+    let totalTicks = 0;
+    let currentTick = 0;
+
+    // UI Elements
+    const ui = {
+        bpm: document.getElementById('bpm-val'),
+        slider: document.getElementById('bpm-slider'),
+        visualArea: document.getElementById('visual-area'),
+        barCount: document.getElementById('bar-count'),
+        playBtn: document.getElementById('play-btn'),
+        timerToggle: document.getElementById('timer-toggle'),
+        timerInput: document.getElementById('timer-input'),
+        timerDisplay: document.getElementById('timer-display')
+    };
+
+    // Initialize
+    initPattern();
+    renderVisuals();
+
+    // --- 核心逻辑 ---
+    function initPattern() {
+        let newPattern = [];
+        totalTicks = beatsPerBar * subdivision;
+        for (let i = 0; i < totalTicks; i++) {
+            let isMainBeat = (i % subdivision === 0);
+            let beatIndex = Math.floor(i / subdivision);
+            // 第一拍强(2)，其他主拍弱(1)，细分弱(1)
+            if (isMainBeat) newPattern.push(beatIndex === 0 ? 2 : 1);
+            else newPattern.push(1);
+        }
+        patternState = newPattern;
+    }
+
+    function renderVisuals() {
+        ui.visualArea.innerHTML = '';
+        ui.barCount.innerText = beatsPerBar;
+
+        for (let b = 0; b < beatsPerBar; b++) {
+            const group = document.createElement('div');
+            group.className = 'beat-group';
+            
+            for (let s = 0; s < subdivision; s++) {
+                const globalIndex = b * subdivision + s;
+                const dot = document.createElement('div');
+                dot.className = 'beat-dot';
+                dot.id = `dot-${globalIndex}`;
+                
+                // 细分多时自动变小
+                if (subdivision >= 3) {
+                    dot.style.width = '20px'; dot.style.height = '20px';
+                }
+
+                dot.dataset.state = patternState[globalIndex];
+                dot.onclick = () => {
+                    let st = parseInt(dot.dataset.state);
+                    st = (st === 2) ? 1 : (st === 1) ? 0 : 2;
+                    patternState[globalIndex] = st;
+                    dot.dataset.state = st;
+                };
+                group.appendChild(dot);
+            }
+            ui.visualArea.appendChild(group);
+        }
+    }
+
+    // --- 事件 ---
+    window.adjBar = (d) => {
+        let n = beatsPerBar + d;
+        if (n >= 1 && n <= 12) {
+            beatsPerBar = n;
+            initPattern();
+            renderVisuals();
+        }
+    };
+
+    window.setSub = (val, el) => {
+        subdivision = val;
+        document.querySelectorAll('.sub-text-btn').forEach(b => b.classList.remove('active'));
+        el.classList.add('active');
+        initPattern();
+        renderVisuals();
+    };
+
+    // --- 音频引擎 ---
+    timerWorker.onmessage = (e) => { if (e.data === "tick") scheduler(); };
+
+    function scheduler() {
+        const lookahead = 25.0;
+        const scheduleAhead = 0.1;
+        while (nextNoteTime < ctx.currentTime + scheduleAhead) {
+            scheduleNote(currentTick, nextNoteTime);
+            const secsPerBeat = 60.0 / bpm;
+            const secsPerTick = secsPerBeat / subdivision;
+            nextNoteTime += secsPerTick;
+            currentTick++;
+            if (currentTick >= totalTicks) currentTick = 0;
+        }
+    }
+
+    function scheduleNote(tickIndex, time) {
+        const state = patternState[tickIndex];
+        if (state === 0) return; 
+
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        let freq = 1000, vol = 0.5;
+        const isMain = (tickIndex % subdivision === 0);
+        const isFirst = (tickIndex === 0);
+
+        if (state === 2) { 
+            freq = isFirst ? 1600 : 1300; vol = 1.0;
+        } else { 
+            if (isMain) { freq = 1000; vol = 0.6; }
+            else { freq = 2000; vol = 0.25; }
+        }
+
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.04);
+        osc.start(time);
+        osc.stop(time + 0.05);
+
+        const delay = Math.max(0, (time - ctx.currentTime) * 1000);
+        setTimeout(() => {
+            const el = document.getElementById(`dot-${tickIndex}`);
+            if (el) {
+                el.classList.add('flash');
+                setTimeout(() => el.classList.remove('flash'), 100);
+            }
+        }, delay);
+    }
+
+    // --- 播放控制 ---
+    ui.playBtn.onclick = () => { if (isPlaying) stop(); else start(); };
+
+    function start() {
+        if (ctx.state === 'suspended') ctx.resume();
+        isPlaying = true;
+        currentTick = 0;
+        nextNoteTime = ctx.currentTime + 0.05;
+        ui.playBtn.innerText = "STOP";
+        ui.playBtn.classList.add('playing');
+        timerWorker.postMessage("start");
+        if (isTimerOn) startTimer();
+    }
+
+    function stop() {
+        isPlaying = false;
+        timerWorker.postMessage("stop");
+        ui.playBtn.innerText = "START";
+        ui.playBtn.classList.remove('playing');
+        stopTimer();
+    }
+
+    // --- BPM ---
+    window.adjBpm = (d) => updateBpm(parseInt(bpm) + d);
+    ui.slider.oninput = (e) => updateBpm(parseInt(e.target.value));
+    function updateBpm(v) {
+        if (v<30) v=30; if (v>300) v=300;
+        bpm = v; ui.slider.value = v; ui.bpm.innerText = v;
+    }
+
+    // --- Tap Tempo ---
+    let taps = [];
+    document.getElementById('tap-btn').onclick = () => {
+        const now = Date.now();
+        if (taps.length && now - taps[taps.length-1] > 2000) taps = [];
+        taps.push(now);
+        if (taps.length > 4) taps.shift();
+        if (taps.length > 1) {
+            let sum = 0;
+            for(let i=1; i<taps.length; i++) sum += taps[i] - taps[i-1];
+            updateBpm(Math.round(60000 / (sum / (taps.length-1))));
+        }
+    };
+
+    // --- Timer ---
+    let isTimerOn = false;
+    let timerInt = null;
+    let timeLeft = 0;
+
+    ui.timerToggle.onclick = () => {
+        isTimerOn = !isTimerOn;
+        ui.timerToggle.classList.toggle('on', isTimerOn);
+        if (isTimerOn) {
+            timeLeft = ui.timerInput.value * 60;
+            updateDisplay();
+            ui.timerDisplay.classList.add('active');
+            if (isPlaying) startTimer();
+        } else {
+            stopTimer();
+            ui.timerDisplay.innerText = "00:00";
+            ui.timerDisplay.classList.remove('active');
+        }
+    };
+
+    window.adjTimer = (v) => {
+        let n = parseInt(ui.timerInput.value) + v;
+        if (n < 1) n = 1; if (n > 120) n = 120;
+        ui.timerInput.value = n;
+        if (isTimerOn && !isPlaying) { timeLeft = n*60; updateDisplay(); }
+    };
+    ui.timerInput.onchange = () => {
+        let n = parseInt(ui.timerInput.value);
+        if (n<1) ui.timerInput.value=1;
+        if (isTimerOn && !isPlaying) { timeLeft = parseInt(ui.timerInput.value)*60; updateDisplay(); }
+    };
+
+    function updateDisplay() {
+        const m = Math.floor(timeLeft / 60).toString().padStart(2,'0');
+        const s = (timeLeft % 60).toString().padStart(2,'0');
+        ui.timerDisplay.innerText = `${m}:${s}`;
+    }
+
+    function startTimer() {
+        clearInterval(timerInt);
+        if (!isTimerOn) return;
+        if (timeLeft <= 0) timeLeft = ui.timerInput.value * 60;
+        updateDisplay();
+        timerInt = setInterval(() => {
+            timeLeft--;
+            updateDisplay();
+            if (timeLeft <= 0) {
+                stop();
+                alert("Time's Up!");
+                timeLeft = ui.timerInput.value * 60;
+                updateDisplay();
+            }
+        }, 1000);
+    }
+    function stopTimer() { clearInterval(timerInt); }
+
+</script>
+</body>
+</html>
